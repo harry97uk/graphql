@@ -1,35 +1,149 @@
-const projectXPsvg = document.createElementNS(
-  "http://www.w3.org/2000/svg",
-  "svg"
-);
-projectXPsvg.setAttribute("height", `${600}px`);
-projectXPsvg.setAttribute("width", `${1000}px`);
-projectXPsvg.setAttribute("viewBox", `0 0 1000 700`);
+async function renderUserProfile() {
+  try {
+    const jwt = localStorage.getItem("graphql-token");
+    const info = await getProfileData(jwt);
+    renderData(info);
+  } catch (error) {
+    console.log("invalid session token");
+    console.log(error);
+    navigateTo("/login");
+  }
+}
 
-const projectXPTimesvg = document.createElementNS(
-  "http://www.w3.org/2000/svg",
-  "svg"
-);
-projectXPTimesvg.setAttribute("height", `${600}px`);
-projectXPTimesvg.setAttribute("width", `${1000}px`);
-projectXPTimesvg.setAttribute("viewBox", `0 0 1000 700`);
+function getProfileData(JWT) {
+  const query = `
+    query {
+      user {
+        firstName
+        lastName
+        id
+        login
+        progresses(where: {_and: [
+            {path: {_like: "%div-01/%"}},
+            {path: {_nlike: "%piscine%"}},
+            {path: {_nlike: "%check-points%"}},
+            {path: {_nlike: "%weekfour%"}}
+        ]}) {
+          object {
+            name
+          }
+          path
+          grade
+        }
+        transactions(where: {_and: [
+            {path: {_like: "%div-01/%"}},
+            {path: {_nlike: "%piscine-js/%"}},
+            {path: {_nlike: "%piscine-js-%"}},
+            {path: {_nlike: "%weekfour%"}},
+          {type: {_eq: "xp"}}
+      ]}) {
+              amount
+        createdAt
+      }
+        xps(where: {_and: [
+            {path: {_like: "%div-01/%"}},
+            {path: {_nlike: "%piscine%"}},
+            {path: {_nlike: "%check-points%"}},
+            {path: {_nlike: "%weekfour%"}}
+        ]}) 
+        {
+          amount
+          path
+        }
+      }
+    }
+  `;
 
-const info = document.getElementById("userInfo");
-info.style.display = "none";
+  const headers = {
+    Authorization: `Bearer ${JWT.replaceAll('"', "")}`,
+    "Content-Type": "application/json",
+  };
 
-const projectsXP = info.innerText.split(`"xps":[{`)[1].split(`}, {`);
-const transactionsData = info.innerText
-  .split(`"transactions":[{`)[1]
-  .split(`"xps":[{`)[0]
-  .split(`}, {`);
-const progressesData = info.innerText
-  .split(`"progresses":[{`)[1]
-  .split(`"transactions":[{`)[0]
-  .split(`}, {`);
-const totalXP = calculateTotalXP(transactionsData);
-const projectsXPChartData = generateProjectsXPData(projectsXP);
-const projectsXPTimeChartData = generateProjectsXPTimeData(transactionsData);
-const projectGrades = generateProjectGradesTable(progressesData);
+  const options = {
+    method: "POST",
+    headers: headers,
+    hostname: "learn.01founders.co",
+    path: "/api/graphql-engine/v1/graphql",
+    agent: new https.Agent({
+      rejectUnauthorized: true, // Set to true to reject self-signed certificates
+    }),
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        resolve(data);
+      });
+    });
+
+    req.on("error", (err) => {
+      reject(err);
+    });
+
+    req.write(JSON.stringify({ query: query }));
+    req.end();
+  });
+}
+
+function renderData(info) {
+  const projectXPsvg = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg"
+  );
+  projectXPsvg.setAttribute("height", `${600}px`);
+  projectXPsvg.setAttribute("width", `${1000}px`);
+  projectXPsvg.setAttribute("viewBox", `0 0 1000 700`);
+
+  const projectXPTimesvg = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg"
+  );
+  projectXPTimesvg.setAttribute("height", `${600}px`);
+  projectXPTimesvg.setAttribute("width", `${1000}px`);
+  projectXPTimesvg.setAttribute("viewBox", `0 0 1000 700`);
+
+  const projectsXP = info.split(`"xps":[{`)[1].split(`}, {`);
+  const transactionsData = info
+    .split(`"transactions":[{`)[1]
+    .split(`"xps":[{`)[0]
+    .split(`}, {`);
+  const progressesData = info
+    .split(`"progresses":[{`)[1]
+    .split(`"transactions":[{`)[0]
+    .split(`}, {`);
+  const totalXP = calculateTotalXP(transactionsData);
+  const projectsXPChartData = generateProjectsXPData(projectsXP);
+  const projectsXPTimeChartData = generateProjectsXPTimeData(transactionsData);
+  const projectGrades = generateProjectGradesTable(progressesData);
+
+  generateBarChart(projectsXPChartData, projectXPsvg);
+  generateLineChart(projectsXPTimeChartData, projectXPTimesvg);
+
+  const userInfo = document.createElement("div");
+  userInfo.classList.add("user-info");
+  userInfo.innerText = createUserInfoString(info);
+  const totalXPDisplay = document.createElement("div");
+  totalXPDisplay.classList.add("totalxp-display");
+  totalXPDisplay.innerText = "Total XP achieved: " + totalXP;
+
+  const infoContainer = document.createElement("div");
+  infoContainer.classList.add("info-container");
+  infoContainer.appendChild(userInfo);
+  infoContainer.appendChild(totalXPDisplay);
+  infoContainer.appendChild(projectGrades);
+
+  const svgContainer = document.createElement("div");
+  svgContainer.classList.add("svg-container");
+  svgContainer.appendChild(projectXPsvg);
+  svgContainer.appendChild(projectXPTimesvg);
+
+  document.body.appendChild(infoContainer);
+  document.body.appendChild(svgContainer);
+}
 
 function generateProjectsXPData(projectsXP) {
   console.log(projectsXP);
@@ -406,26 +520,4 @@ function generateLineChart(data, svg) {
   return update;
 }
 
-generateBarChart(projectsXPChartData, projectXPsvg);
-generateLineChart(projectsXPTimeChartData, projectXPTimesvg);
-
-const userInfo = document.createElement("div");
-userInfo.classList.add("user-info");
-userInfo.innerText = createUserInfoString(info);
-const totalXPDisplay = document.createElement("div");
-totalXPDisplay.classList.add("totalxp-display");
-totalXPDisplay.innerText = "Total XP achieved: " + totalXP;
-
-const infoContainer = document.createElement("div");
-infoContainer.classList.add("info-container");
-infoContainer.appendChild(userInfo);
-infoContainer.appendChild(totalXPDisplay);
-infoContainer.appendChild(projectGrades);
-
-const svgContainer = document.createElement("div");
-svgContainer.classList.add("svg-container");
-svgContainer.appendChild(projectXPsvg);
-svgContainer.appendChild(projectXPTimesvg);
-
-document.body.appendChild(infoContainer);
-document.body.appendChild(svgContainer);
+renderUserProfile();
