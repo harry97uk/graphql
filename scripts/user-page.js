@@ -1,16 +1,16 @@
 async function renderUserProfile() {
   try {
     const jwt = localStorage.getItem("graphql-token");
+    console.log(jwt);
     const info = await getProfileData(jwt);
     renderData(info);
   } catch (error) {
-    console.log("invalid session token");
     console.log(error);
     navigateTo("/login");
   }
 }
 
-function getProfileData(JWT) {
+async function getProfileData(JWT) {
   const query = `
     query {
       user {
@@ -64,29 +64,19 @@ function getProfileData(JWT) {
     headers: headers,
     hostname: "learn.01founders.co",
     path: "/api/graphql-engine/v1/graphql",
-    agent: new https.Agent({
-      rejectUnauthorized: true, // Set to true to reject self-signed certificates
-    }),
+    body: JSON.stringify({ query: query }),
   };
 
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        resolve(data);
-      });
+  return await makeHttpRequest(options)
+    .then((responseData) => {
+      console.log(responseData);
+      // Handle the response data here
+      return responseData;
+    })
+    .catch((error) => {
+      // Handle errors here
+      console.log(error);
     });
-
-    req.on("error", (err) => {
-      reject(err);
-    });
-
-    req.write(JSON.stringify({ query: query }));
-    req.end();
-  });
 }
 
 function renderData(info) {
@@ -96,7 +86,7 @@ function renderData(info) {
   );
   projectXPsvg.setAttribute("height", `${600}px`);
   projectXPsvg.setAttribute("width", `${1000}px`);
-  projectXPsvg.setAttribute("viewBox", `0 0 1000 700`);
+  projectXPsvg.setAttribute("viewBox", `0 0 1000 800`);
 
   const projectXPTimesvg = document.createElementNS(
     "http://www.w3.org/2000/svg",
@@ -104,7 +94,7 @@ function renderData(info) {
   );
   projectXPTimesvg.setAttribute("height", `${600}px`);
   projectXPTimesvg.setAttribute("width", `${1000}px`);
-  projectXPTimesvg.setAttribute("viewBox", `0 0 1000 700`);
+  projectXPTimesvg.setAttribute("viewBox", `0 0 1000 800`);
 
   const projectsXP = info.split(`"xps":[{`)[1].split(`}, {`);
   const transactionsData = info
@@ -132,6 +122,13 @@ function renderData(info) {
 
   const infoContainer = document.createElement("div");
   infoContainer.classList.add("info-container");
+  const logoutButton = document.createElement("button");
+  logoutButton.innerText = "Log out";
+  logoutButton.onclick = () => {
+    localStorage.removeItem("graphql-token");
+    navigateTo("/login");
+  };
+  infoContainer.appendChild(logoutButton);
   infoContainer.appendChild(userInfo);
   infoContainer.appendChild(totalXPDisplay);
   infoContainer.appendChild(projectGrades);
@@ -141,8 +138,11 @@ function renderData(info) {
   svgContainer.appendChild(projectXPsvg);
   svgContainer.appendChild(projectXPTimesvg);
 
-  document.body.appendChild(infoContainer);
-  document.body.appendChild(svgContainer);
+  const mainContainer = document.getElementById("main-container");
+  mainContainer.innerHTML = "";
+
+  mainContainer.appendChild(infoContainer);
+  mainContainer.appendChild(svgContainer);
 }
 
 function generateProjectsXPData(projectsXP) {
@@ -253,15 +253,15 @@ function calculateTotalXP(transactionsData) {
 }
 
 function createUserInfoString(userInfo) {
-  const firstName = userInfo.innerText
+  const firstName = userInfo
     .split(`"firstName":`)[1]
     .split(",")[0]
     .replaceAll(`"`, "");
-  const lastName = userInfo.innerText
+  const lastName = userInfo
     .split(`"lastName":`)[1]
     .split(",")[0]
     .replaceAll(`"`, "");
-  const username = userInfo.innerText
+  const username = userInfo
     .split(`"login":`)[1]
     .split(",")[0]
     .replaceAll(`"`, "");
@@ -519,5 +519,3 @@ function generateLineChart(data, svg) {
   update(data);
   return update;
 }
-
-renderUserProfile();

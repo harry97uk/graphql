@@ -1,8 +1,9 @@
 function renderLoginPage() {
   const loginHTML = `
-    <div class="login-form">
+  GraphQL
+    <div id="login-form" class="login-form">
         <div id="incorrect-details" style="color: red; visibility: hidden;">Incorrect username or password!</div>
-        <form method="post">
+        <form>
             <!-- <label for="user">Username/Email:</label> -->
             <input type="text" id="user" name="user" placeholder="Username or Email" required>
             <br>
@@ -27,25 +28,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const password = document.getElementById("password").value;
 
     // Perform client-side validation here if needed
-    const encodedCredentials = Buffer.from(`${user}:${password}`).toString(
-      "base64"
-    );
+    const encodedCredentials = btoa(`${user}:${password}`);
 
     try {
       const result = await validateCredentials(encodedCredentials);
       if (result) {
         console.log("validation success");
-        (async () => {
-          try {
-            const jwt = await getJWT(encodedCredentials);
-            const token = generateSessionToken(jwt);
-            // Store the token in localStorage
-            localStorage.setItem("graphql-token", token);
-            navigateTo("/user");
-          } catch (error) {
-            console.log("could not get jwt: ", error);
-          }
-        })();
+        navigateTo("/user");
       } else {
         console.log("validation fail");
         //implement failed attempt
@@ -67,9 +56,14 @@ CREDENTIALS, JWT, LOGGING IN
 async function validateCredentials(encodedCredentials) {
   try {
     const jwt = await getJWT(encodedCredentials);
-    if (jwt === `{"error":"User does not exist or password incorrect"}`) {
+    console.log(jwt);
+    if (
+      jwt === `{"error":"User does not exist or password incorrect"}` ||
+      !jwt
+    ) {
       return false;
     } else {
+      localStorage.setItem("graphql-token", jwt);
       return true;
     }
   } catch (error) {
@@ -78,7 +72,7 @@ async function validateCredentials(encodedCredentials) {
   }
 }
 
-function getJWT(encodedCredentials) {
+async function getJWT(encodedCredentials) {
   const auth = `Basic ${encodedCredentials}`;
   const options = {
     hostname: "learn.01founders.co",
@@ -88,27 +82,16 @@ function getJWT(encodedCredentials) {
       Authorization: auth,
       "Content-Type": "application/json",
     },
-    agent: new https.Agent({
-      rejectUnauthorized: true, // Set to true to reject self-signed certificates
-    }),
   };
 
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        resolve(data);
-      });
+  return await makeHttpRequest(options)
+    .then((responseData) => {
+      console.log(responseData);
+      // Handle the response data here
+      return responseData;
+    })
+    .catch((error) => {
+      // Handle errors here
+      console.log(error);
     });
-
-    req.on("error", (error) => {
-      console.error(error);
-      reject(error);
-    });
-
-    req.end();
-  });
 }
