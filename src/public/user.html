@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="expires" content="0">
+    <title>GraphQL User</title>
+    <link rel="stylesheet" href="../styles/user-page.css">
+</head>
+
+<body>
+    <script>
+        window.onpageshow = function (event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        };
+
+    </script>
+    <button id="logoutButton">Logout</button>
+
+    <script>
+        const logoutButton = document.getElementById('logoutButton');
+
+        logoutButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/logout', { method: 'POST' });
+                if (response.ok) {
+                    // Logout successful, redirect the user to the login page
+                    window.location.href = '/login';
+                } else {
+                    // Handle logout error
+                    console.error('Logout failed');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        });
+    </script>
+    {{placeholder}}
+    <script src="../scripts/user-page.js"></script>
+</body>
+
+</html>
