@@ -2,7 +2,7 @@ function renderLoginPage() {
   const loginHTML = `
     <div class="login-form">
         <div id="incorrect-details" style="color: red; visibility: hidden;">Incorrect username or password!</div>
-        <form action="/validate" method="post">
+        <form method="post">
             <!-- <label for="user">Username/Email:</label> -->
             <input type="text" id="user" name="user" placeholder="Username or Email" required>
             <br>
